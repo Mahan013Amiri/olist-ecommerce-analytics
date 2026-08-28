@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data (generated — never commit)
+data/raw/*
+!data/raw/.gitkeep
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Trained models (generated)
+models/*
+!models/.gitkeep
+
+# Reports (generated)
+reports/*
+!reports/.gitkeep
+
+# Environment secrets
+.env
+
+# OS
+Thumbs.db
+.DS_Store
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
