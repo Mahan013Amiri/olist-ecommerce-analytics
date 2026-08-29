@@ -70,6 +70,14 @@ Download the 9 CSV files from [Kaggle](https://www.kaggle.com/datasets/olistbr/b
 python -c "from src.utils.config import PROJECT_ROOT; print(PROJECT_ROOT)"
 pytest
 ```
+## Running the Pipeline So Far
+
+```bash
+python -m src.data.ingest    # loads 9 raw CSVs, casts types, saves to data/interim/
+python -m src.data.profile   # profiles the interim tables, saves reports/data_profile.md
+```
+
+See [`reports/data_profile.md`](reports/data_profile.md) for the latest profiling results (schema, missing values, duplicates, and known findings verification).
 
 ## Architecture Principles
 
@@ -82,7 +90,7 @@ pytest
 | Phase | Task | Status |
 |---|---|---|
 | 0 | 0.1 Project Setup | Done |
-| 0 | 0.2 Ingestion & Profiling | Pending |
+| 0 | 0.2 Ingestion & Profiling | Done |
 | 1 | 1.1 Per-Table Cleaning | Pending |
 | 1 | 1.2 Validation | Pending |
 | 1 | 1.3 Caching Pipeline | Pending |
