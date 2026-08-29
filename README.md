@@ -96,7 +96,7 @@ See [`reports/data_profile.md`](reports/data_profile.md) for the latest profilin
 | 1 | 1.3 Caching Pipeline | Pending |
 | 1 | 1.4 Common Features | Pending |
 
-برای جزئیات کامل هر Task (چیکار شد، چه یافته‌هایی)، ببین [`docs/progress_log.md`](docs/progress_log.md).
+For a detailed breakdown of what was done and found in each task, see [`docs/progress_log.md`](docs/progress_log.md).
 See [`docs/architecture.md`](docs/architecture.md) for the full roadmap.
 
 ## Convention
