@@ -23,7 +23,7 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Data (generated — never commit)
+# Data (generated - never commit)
 data/raw/*
 !data/raw/.gitkeep
 data/interim/*
@@ -35,9 +35,11 @@ data/processed/*
 models/*
 !models/.gitkeep
 
-# Reports (generated)
+# Reports (generated deliverables - keep .md and .csv reports, ignore everything else)
 reports/*
 !reports/.gitkeep
+!reports/*.md
+!reports/*.csv
 
 # Environment secrets
 .env
