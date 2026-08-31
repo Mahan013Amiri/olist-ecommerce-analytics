@@ -91,7 +91,7 @@ See [`reports/data_profile.md`](reports/data_profile.md) for the latest profilin
 |---|---|---|
 | 0 | 0.1 Project Setup | Done |
 | 0 | 0.2 Ingestion & Profiling | Done |
-| 1 | 1.1 Per-Table Cleaning | Pending |
+| 1 | 1.1 Per-Table Cleaning | Done |
 | 1 | 1.2 Validation | Pending |
 | 1 | 1.3 Caching Pipeline | Pending |
 | 1 | 1.4 Common Features | Pending |
