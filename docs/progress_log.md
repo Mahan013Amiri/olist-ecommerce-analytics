@@ -117,3 +117,52 @@
 **نتیجه‌ی تست‌ها:** هر ۴ تست جدید Pass شدن؛ کل Test Suite پروژه (۲۳ تست) بدون Regression پاس شد.
 
 **نکته برای Task 1.4:** از این به بعد، هر Task بعدی (مثل `build_common_features`) باید داده‌ی خودش رو از طریق `load_data(rebuild=False)` بگیره، نه مستقیم از `clean.py`/`ingest.py` — تا از همین Cache یکپارچه استفاده بشه.
+
+
+## Task 1.4 — Common Feature Layer + Grain Registry + Feature Registry
+
+**چیکار شد:**
+- `src/features/common_features.py` نوشته شد: تابع `build_common_features(clean_tables)`
+  که یک جدول فیچر در سطح `order_id` می‌سازه، از روی `orders` و `order_items` (خروجی `load_data()`).
+- فیچرهای ساخته‌شده:
+  - `order_item_count`, `order_total_value`, `order_freight_value` — از `order_items` Aggregate شدن،
+    Available At: `order_approved_at`. برای ۷۷۵ سفارش بدون ردیف آیتم: `order_item_count=0`،
+    مقادیر مالی `NaN` (نه صفر، چون "بدون داده" با "صفر تومان" فرق داره).
+  - `delivery_delay_days`, `is_delayed` — از `orders`، Available At: `post_delivery`. فقط برای
+    `order_status == "delivered"` محاسبه می‌شن؛ برای بقیه‌ی وضعیت‌ها (از جمله ۶ مورد
+    `flag_canceled_with_date`) و همچنین ۸ مورد `flag_delivered_no_date` (چون تاریخ ندارن)،
+    به‌طور طبیعی `NaN` می‌مونن.
+- بخش `if __name__ == "__main__"` به همون فایل اضافه شد که با `load_data(rebuild=False)`
+  داده رو می‌گیره و نتیجه رو در `data/processed/common_features.parquet` ذخیره می‌کنه
+  (هماهنگ با الگوی `ingest.py`/`pipeline.py`).
+- `docs/grain_registry.md` کامل پر شد: ۸ جدول پایه (`customers` تا `geolocation`) + ردیف جدید
+  `common_features` با یافته‌های واقعی Task 0.2/1.1.
+- `docs/feature_registry.md` کامل پر شد: ۵ فیچر (`order_item_count`, `order_total_value`,
+  `order_freight_value`, `delivery_delay_days`, `is_delayed`) با `Available At` و
+  `Allowed/Forbidden Tasks` صریح — طبق Temporal Leakage Policy (بخش ۴ architecture.md).
+- `tests/test_features.py` نوشته شد: ۷ تست واحد روی Fixture مصنوعی، شامل تست صریح برای هر
+  حالت مرزی (سفارش عادی، دیرکرد، بدون آیتم، `canceled` با تاریخ، `delivered` بدون تاریخ).
+
+**نتیجه‌ی اجرای واقعی روی داده‌ی کامل (۹۹,۴۴۱ سفارش):**
+
+| بررسی | عدد | مطابق یافته‌های قبلی؟ |
+|---|---|---|
+| `shape` | (99441, 6) | ✅ Grain = order_id، همه‌ی سفارش‌ها حاضرن |
+| `order_item_count == 0` | 775 | ✅ مطابق Task 0.2/1.1 |
+| `order_total_value`/`order_freight_value` NaN | 775 | ✅ همون سفارش‌های بی‌آیتم |
+| `delivery_delay_days` غیر NaN (یعنی delivered با تاریخ کامل) | 96,470 | ✅ 99,441 − 2,971 |
+| `delivery_delay_days` NaN | 2,971 | ✅ شامل غیر-delivered + ۸ مورد delivered بی‌تاریخ |
+| `is_delayed == True` | 6,534 | معقول (~۶.۸٪ سفارش‌های تکمیل‌شده) |
+
+**نتیجه‌ی تست‌ها:** هر ۷ تست `test_features.py` Pass شدن.
+
+**فایل‌های تولیدشده/تغییرکرده:** `src/features/common_features.py`,
+`data/processed/common_features.parquet` (لوکال، commit نمی‌شه)، `docs/grain_registry.md`,
+`docs/feature_registry.md`, `tests/test_features.py`.
+
+**نکته برای Task 2.1 / 3.1:** از این به بعد، هر Task بعدی که نیاز به فیچرهای سطح order داره
+(مثل EDA، Customer Features، Delivery Delay Prediction) باید `common_features.parquet` رو
+مستقیم بخونه یا از `build_common_features(load_data())` بگیره — نه این‌که دوباره از صفر
+Aggregate بسازه. همچنین قبل از استفاده از `delivery_delay_days`/`is_delayed` در هر مدل
+Predictive، حتماً `docs/feature_registry.md` چک بشه (ممنوع برای `delivery_delay_prediction`
+و `repeat_purchase`).
