@@ -66,3 +66,30 @@
 
 **نکته برای Task 1.2:** ستون‌های `flag_*` باید در Validation استفاده بشن،
 نه اینکه دوباره از صفر تشخیص داده بشن.
+
+
+## Task 1.2 — Data Validation Layer
+
+**چیکار شد:**
+- `src/data/validate.py` نوشته شد: دو مرحله طبق معماری —
+  - **Schema Validation** (`validate_schema`): روی ۹ جدول `data/interim/`، چک می‌کنه ستون‌های موردانتظار موجودن و خانواده‌ی dtype‌شون (int/float/datetime/object) درسته.
+  - **Business Validation** (`validate_business_rules`): روی ۸ جدول `data/processed/`، قوانین `delivery_date >= purchase_date`، `price/freight/payment_value >= 0`، `review_score ∈ [1,5]`، یکتایی `(order_id, order_item_id)` و `(review_id, order_id)`، یکتایی `zip_code_prefix` بعد از Aggregation، و Referential Integrity (`order_id` در `order_items`/`payments`/`reviews` باید در `orders` وجود داشته باشه).
+- به‌جای تشخیص دوباره‌ی مشکلات شناخته‌شده، ستون‌های `flag_*` ساخته‌شده در Task 1.1 رو مستقیم می‌خونه و به‌صورت **informational** (همیشه Pass، با شمارش دقیق) گزارش می‌کنه.
+- `src/utils/io.py` تکمیل شد: `read_parquet`, `write_parquet`, `file_exists` (فقط توابع پایه‌ی I/O — منطق Cache/Hash همچنان برای Task 1.3 باقی می‌مونه).
+- `tests/test_validate.py` نوشته شد: ۱۴ تست واحد روی Fixtureهای مصنوعی، شامل تست صریح روی نکته‌ی کلیدی پروژه (`review_id` تنها باید Duplicate پیدا کنه، ولی `(review_id, order_id)` نباید).
+- Output: `reports/validation_report.md`
+
+**نتیجه‌ی اجرای واقعی روی داده‌ی کامل (۹۹,۴۴۱ سفارش):** `ALL CHECKS PASSED` — همه‌ی اعداد Informational دقیقاً با یافته‌های Task 0.2/1.1 مطابقت داشتن:
+
+| یافته | عدد گزارش‌شده | مطابق مستندات؟ |
+|---|---|---|
+| `flag_delivered_no_date` | ۸ | ✅ |
+| `flag_canceled_with_date` | ۶ | ✅ |
+| `flag_zero_value_expected` (voucher) | ۶ | ✅ |
+| `flag_zero_value_suspicious` | ۳ | ✅ |
+| `review_id` تکراری (تنها، بدون `order_id`) | ۸۱۴ | ✅ دقیقاً مطابق architecture.md |
+| Referential Integrity (۳ جدول) | ۰ Orphan | ✅ کیفیت داده تأیید شد |
+
+هیچ Business Rule واقعی (نه Informational) Fail نشد — یعنی Cleaning انجام‌شده در Task 1.1 از نظر منطق کسب‌وکار سالمه.
+
+**نکته برای Task 1.3:** `src/utils/io.py` الان `read_parquet`/`write_parquet`/`file_exists` رو داره؛ منطق `load_data(rebuild=False)` باید روی همین توابع ساخته بشه، نه از صفر.

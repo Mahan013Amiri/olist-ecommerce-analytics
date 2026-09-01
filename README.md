@@ -75,6 +75,7 @@ pytest
 ```bash
 python -m src.data.ingest    # loads 9 raw CSVs, casts types, saves to data/interim/
 python -m src.data.profile   # profiles the interim tables, saves reports/data_profile.md
+python -m src.data.validate  # runs schema + business validation, saves reports/validation_report.md
 ```
 
 See [`reports/data_profile.md`](reports/data_profile.md) for the latest profiling results (schema, missing values, duplicates, and known findings verification).
@@ -92,7 +93,7 @@ See [`reports/data_profile.md`](reports/data_profile.md) for the latest profilin
 | 0 | 0.1 Project Setup | Done |
 | 0 | 0.2 Ingestion & Profiling | Done |
 | 1 | 1.1 Per-Table Cleaning | Done |
-| 1 | 1.2 Validation | Pending |
+| 1 | 1.2 Validation | Done |
 | 1 | 1.3 Caching Pipeline | Pending |
 | 1 | 1.4 Common Features | Pending |
 
