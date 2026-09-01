@@ -10,10 +10,17 @@ def read_parquet(path: Path) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
-def write_parquet(df: pd.DataFrame, path: Path) -> None:
-    """Write a DataFrame to parquet, creating parent directories if needed."""
+def write_parquet(df: pd.DataFrame, path: Path) -> Path:
+    """Write a DataFrame to parquet, creating parent directories if needed.
+
+    Returns
+    -------
+    Path
+        The path the file was written to.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(path, index=False)
+    return path
 
 
 def file_exists(path: Path) -> bool:

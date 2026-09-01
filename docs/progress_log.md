@@ -93,3 +93,27 @@
 هیچ Business Rule واقعی (نه Informational) Fail نشد — یعنی Cleaning انجام‌شده در Task 1.1 از نظر منطق کسب‌وکار سالمه.
 
 **نکته برای Task 1.3:** `src/utils/io.py` الان `read_parquet`/`write_parquet`/`file_exists` رو داره؛ منطق `load_data(rebuild=False)` باید روی همین توابع ساخته بشه، نه از صفر.
+
+
+## Task 1.3 — Caching Infrastructure
+
+**چیکار شد:**
+- `src/data/pipeline.py` نوشته شد: تابع `load_data(rebuild=False)` که کل زنجیره‌ی
+  `ingest → interim → clean → processed` رو با یک Cache دومرحله‌ای مدیریت می‌کنه:
+  1. اگه `rebuild=False` و هر ۸ فایل `data/processed/*_clean.parquet` موجود باشن → مستقیم از اونجا خونده می‌شن (نه ingest نه clean اجرا میشه).
+  2. وگرنه، اگه هر ۹ فایل `data/interim/*.parquet` موجود باشن → به‌جای اجرای دوباره‌ی `ingest_all()`، از همون‌ها خونده می‌شن.
+  3. در غیر این صورت (یا `rebuild=True`) → `ingest_all()` و بعدش `clean_all_tables()` از صفر اجرا می‌شن و نتیجه در `data/processed/` ذخیره میشه.
+- `src/utils/io.py` اصلاح شد: `write_parquet` حالا مسیر فایل نوشته‌شده رو برمی‌گردونه (قبلاً `None` برمی‌گردوند)، هماهنگ با الگوی `save_interim` در `ingest.py`.
+- `tests/test_pipeline_cache.py` نوشته شد: ۴ تست با `monkeypatch` + `tmp_path`، کاملاً مستقل از داده‌ی واقعی (یک دنیای ساختگی ۲-جدولی):
+  - Cache کامل processed موجوده → نه ingest نه clean صدا زده میشن
+  - فقط interim موجوده → ingest صدا زده نمیشه، clean اجرا و processed ذخیره میشه
+  - `rebuild=True` → حتی با وجود هر دو Cache، ingest دوباره اجرا میشه
+  - هیچ Cache‌ای نیست → ingest اجرا میشه
+
+**نتیجه‌ی اجرای واقعی روی داده‌ی کامل:**
+- `rebuild=False` با processed cache موجود → فقط یک خط لاگ، بدون اجرای دوباره‌ی پایپ‌لاین ✅
+- `rebuild=True` → ingestion کامل (۹ جدول) + cleaning کامل (۸ جدول) اجرا شد؛ تمام تعداد ردیف‌ها دقیقاً مطابق Task 0.2/1.1 بودن (orders: 99,441 / order_items: 112,650 / geolocation بعد از Aggregate: 19,015 و ...)
+
+**نتیجه‌ی تست‌ها:** هر ۴ تست جدید Pass شدن؛ کل Test Suite پروژه (۲۳ تست) بدون Regression پاس شد.
+
+**نکته برای Task 1.4:** از این به بعد، هر Task بعدی (مثل `build_common_features`) باید داده‌ی خودش رو از طریق `load_data(rebuild=False)` بگیره، نه مستقیم از `clean.py`/`ingest.py` — تا از همین Cache یکپارچه استفاده بشه.

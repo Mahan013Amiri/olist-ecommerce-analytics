@@ -94,7 +94,7 @@ See [`reports/data_profile.md`](reports/data_profile.md) for the latest profilin
 | 0 | 0.2 Ingestion & Profiling | Done |
 | 1 | 1.1 Per-Table Cleaning | Done |
 | 1 | 1.2 Validation | Done |
-| 1 | 1.3 Caching Pipeline | Pending |
+| 1 | 1.3 Caching Pipeline | Done |
 | 1 | 1.4 Common Features | Pending |
 
 For a detailed breakdown of what was done and found in each task, see [`docs/progress_log.md`](docs/progress_log.md).
