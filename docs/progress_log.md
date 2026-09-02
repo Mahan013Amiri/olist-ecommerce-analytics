@@ -189,3 +189,47 @@ Predictive، حتماً `docs/feature_registry.md` چک بشه (ممنوع بر�
 | Order-with-Item Rate | 99.22% | 99,441 |
 | Canceled Rate | 0.63% | 99,441 |
 | Freight-to-Value Ratio | 16.57% | فقط سفارش‌های دارای آیتم
+
+## Task 3.1 — Customer Feature Table
+
+**چیکار شد:**
+- `src/features/customer_features.py` نوشته شد: تابع `build_customer_features(clean_tables, common_features)`
+  که یک جدول فیچر در سطح `customer_unique_id` می‌سازه، از روی `orders` + `customers` (نگاشت
+  `customer_id → customer_unique_id`) + `common_features` (خروجی Task 1.4).
+- برخلاف `common_features` (که سطح order و بدون Cutoff زمانیه)، این جدول از **کل تاریخچه‌ی**
+  هر مشتری استفاده می‌کنه — چون فقط برای RFM/Segmentation/Business Analytics (Task 3.2, 3.3)
+  در نظر گرفته شده، نه Predictive Modeling آینده‌محور (طبق Leakage Policy، بخش ۴ architecture.md).
+- فیچرهای ساخته‌شده: `total_orders`, `total_orders_delivered`, `first_purchase_date`,
+  `last_purchase_date`, `total_spend`, `total_freight`, `avg_delivery_delay_days`, `is_repeat_customer`.
+- تصمیم صریح: `total_spend`/`total_freight` فقط روی سفارش‌های `delivered` جمع می‌شن (همسو با
+  پیش‌فرض `eligible_statuses=["delivered"]` که در Task 3.2 هم استفاده می‌شه). برای مشتری‌هایی
+  که هیچ سفارش delivered ندارن، این دو ستون `NaN` می‌مونن (نه صفر) — دقیقاً همون کانونشن
+  Task 1.4 («بدون داده» ≠ «صفر»)، با `sum(min_count=1)` پیاده‌سازی شد.
+- `is_repeat_customer` بر اساس `total_orders_delivered > 1` تعریف شد (رفتار خرید تکراری واقعی،
+  نه صرفاً ثبت سفارشی که ممکنه لغو شده باشه).
+- `tests/test_features.py` تکمیل شد: ۵ تست جدید روی یک Fixture مصنوعی جدید (۴ سفارش،
+  ۳ مشتری یکتا، شامل یک مشتری با دو `customer_id` متفاوت که باید به یک `customer_unique_id`
+  Roll-up بشن) — پوشش‌دهنده‌ی حالت‌های مرزی: تجمیع مشتری تکراری، مشتری فقط-canceled
+  (باید NaN بگیره نه صفر)، مشتری تک‌سفارشی، و صحت `first/last_purchase_date`.
+
+**نتایج واقعی (روی داده‌ی کامل):**
+
+| بررسی | عدد | یادداشت |
+|---|---|---|
+| `shape` | (96096, 9) | Grain = `customer_unique_id`، دقیقاً برابر با یافته‌ی Task 0.2 |
+| `total_orders > 1` | 2,997 مشتری | تعداد مشتری‌های چندسفارشی (متفاوت از عدد ۳,۳۴۵ که تعداد سفارش مازاده، نه تعداد مشتری) |
+| `total_orders_delivered > 1` (`is_repeat_customer == True`) | 2,801 مشتری | |
+| `total_orders_delivered == 0` | 2,738 مشتری | دقیقاً برابر با تعداد `total_spend`/`total_freight` که `NaN` هستن ✅ |
+| `first_purchase_date > last_purchase_date` | 0 | Sanity Check پاس شد |
+
+**نتیجه‌ی تست‌ها:** هر ۱۲ تست `test_features.py` (۷ قدیمی + ۵ جدید) Pass شدن؛ بدون Regression.
+
+**فایل‌های تولیدشده/تغییرکرده:** `src/features/customer_features.py`,
+`data/processed/customer_features.parquet` (لوکال، commit نمی‌شه)، `tests/test_features.py`,
+`docs/grain_registry.md` (ردیف جدید برای `customer_features`).
+
+**نکته برای Task 3.2:** RFM باید مستقیماً از `customer_features.parquet` (یا
+`build_customer_features(load_data(), build_common_features(...))`) بخونه، نه دوباره از صفر
+Aggregate بسازه. `total_spend` همین الان طبق تعریف Monetary مرسوم (`price + freight` روی
+سفارش‌های delivered) حساب شده — فقط Reference Date برای Recency باید در Task 3.2 صریحاً
+مستند بشه.
