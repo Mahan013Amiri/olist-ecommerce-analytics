@@ -35,11 +35,12 @@ data/processed/*
 models/*
 !models/.gitkeep
 
-# Reports (generated deliverables - keep .md and .csv reports, ignore everything else)
+# Reports (generated)
 reports/*
 !reports/.gitkeep
 !reports/*.md
-!reports/*.csv
+!reports/figures/
+!reports/figures/**
 
 # Environment secrets
 .env
@@ -52,3 +53,4 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+

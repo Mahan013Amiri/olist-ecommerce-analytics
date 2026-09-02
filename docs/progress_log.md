@@ -166,3 +166,26 @@
 Aggregate بسازه. همچنین قبل از استفاده از `delivery_delay_days`/`is_delayed` در هر مدل
 Predictive، حتماً `docs/feature_registry.md` چک بشه (ممنوع برای `delivery_delay_prediction`
 و `repeat_purchase`).
+
+
+## Task 2.1 — Business EDA & KPI Dashboard
+
+**چیکار شد:**
+- پوشه‌ی جدید `src/analysis/` ساخته شد (طبق architecture.md نسخه‌ی به‌روزشده)، شامل:
+  - `eda_business.py`: تابع `prepare_eda_data` که یک "spine" سطح order می‌سازه (از `common_features` + `order_status`/`order_purchase_timestamp` از `orders` + `customer_state` از `customers`)، به‌همراه توابع تحلیلی `delivery_delay_distribution`, `monthly_delay_trend`, `delay_by_state`, `order_status_breakdown`, `attach_review_scores`, `review_score_delay_correlation`، و ۴ تابع رسم نمودار (Matplotlib) که در `reports/figures/` ذخیره می‌شن. تابع `generate_eda_report` همه‌ی این‌ها رو کنار هم اجرا می‌کنه و `reports/task_2_1_eda.md` رو می‌سازه.
+  - `kpi_dashboard.py`: تابع `compute_kpis` که ۹ KPI کسب‌وکاری رو هرکدوم با **Numerator/Denominator صریح** (نه فرضی) محاسبه می‌کنه، و `generate_kpi_report` که جدول خوانای Markdown می‌سازه.
+- `tabulate` به `requirements.txt` اضافه شد (وابستگی `DataFrame.to_markdown()`).
+- `tests/test_kpi_dashboard.py` نوشته شد: ۱۰ تست روی یک Fixture دستی ۶-سفارشی که همه‌ی حالت‌های مرزی (delayed/on-time/no-delay-data/canceled/no-items/no-review) رو پوشش می‌ده و تأیید می‌کنه هر KPI روی Denominator درست حساب می‌شه (نه یک مخرج نادرست مثل کل سفارش‌ها به‌جای سفارش‌های واجد شرط).
+
+**نتایج کلیدی (روی داده‌ی کامل ۹۹,۴۴۱ سفارش):**
+
+| KPI | مقدار | Denominator |
+|---|---|---|
+| Delivery Delay Rate | 6.77% | 96,470 (eligible delivered) |
+| On-Time Delivery Rate | 93.23% | 96,470 (eligible delivered) |
+| Avg Delivery Delay | -11.88 روز (زودتر از موعد) | 96,470 |
+| Avg Delay of Late Orders | 10.62 روز | 6,534 (فقط delayed) |
+| Order Completion Rate | 97.02% | 99,441 (کل سفارش‌ها) |
+| Order-with-Item Rate | 99.22% | 99,441 |
+| Canceled Rate | 0.63% | 99,441 |
+| Freight-to-Value Ratio | 16.57% | فقط سفارش‌های دارای آیتم

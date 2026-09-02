@@ -107,8 +107,47 @@ Power BI / Reports
 
 ### Phase 2 — EDA & Business Analytics
 **Task 2.1 – Business EDA & KPI Dashboard**
-- شامل KPIهایی با Denominator صریح (یافته‌ی خوب v3.0): مثلاً `delay_rate = delayed_orders / eligible_delivered_orders`، نه `/ all_orders`. هر KPI باید Denominatorش را در گزارش بنویسد.
-- ارزش: **Must Have**
+- هدف: تحلیل اکتشافی کسبوکار روی دادهی سفارشی (order-level) از لایهی Common Features، استخراج KPIهای کلیدی با **Denominator صریح**، و ساخت داشبورد KPI بهصورت BI-ready برای مصرف در Task 7.1 (Power BI).
+- Input: `data/processed/common_features.parquet` (یا `build_common_features(load_data())`) — طبق نکتهی Task 1.4؛ هیچ Aggregate دوبارهای از صفر ساخته نمیشود. برای KPIهایی که به جدول دیگری نیاز دارند (مثل `reviews`) از جداول `_clean` از طریق `load_data()` خوانده میشود (فقط خواندن، بدون merge ماندگار در Common Features).
+- Output:
+  - `src/analysis/eda_business.py` — تحلیل اکتشافی (توزیعها، روند زمانی، تفکیک state)
+  - `src/analysis/kpi_dashboard.py` — محاسبه و تجمیع KPIها با Denominator صریح
+  - `reports/task_2_1_eda.md` — گزارش EDA + نمودارها
+  - `reports/task_2_1_kpi_report.md` — تعریف هر KPI، مقدار، و **Denominator صریح** در ستون جداگانه
+  - `data/processed/kpi_dashboard.parquet` — خروجی BI-ready (هر ردیف = یک KPI × بازهی زمانی)
+- Dependency: **1.4** (Common Features + Grain/Feature Registry)
+- ارزش: **Must Have** — باید طبق دو ماژول جدا (EDA و KPI) با Docstring کامل و مدیریت خطا نوشته شود، نه اسکریپت اکتشافی خطی.
+
+### KPIها با Denominator صریح (یافتهی خوب v3.0)
+هیچ «نرخ»ی روی کل مخرج نادرست ساخته نمیشود؛ هر KPI در گزارش، Denominator خود را **به عدد** دارد.
+
+| KPI | Numerator | Denominator (عدد واقعی) |
+|---|---|---|
+| Delivery Delay Rate | `is_delayed == True` | ۶,۵۳۴ / ۹۶,۴۷۰ (delivered با تاریخ) |
+| On-Time Delivery Rate | `delivery_delay_days <= 0` | ۹۶,۴۷۰ |
+| Avg Delivery Days | `sum(delivery_delay_days)` | ۹۶,۴۷۰ |
+| Avg Delay of Late Orders | `sum(delay_days روی is_delayed)` | ۶,۵۳۴ |
+| Order Completion Rate | `order_status == "delivered"` | ۹۹,۴۴۱ (کل سفارشها) |
+| Order-with-Item Rate | `order_item_count > 0` | ۹۹,۴۴۱ (۷۷۵ سفارش بدون آیتم خارج از مخرج) |
+| Canceled Rate | `order_status == "canceled"` | ۹۹,۴۴۱ |
+| Freight-to-Value Ratio | `sum(order_freight_value)` | `sum(order_total_value)` — فقط سفارشهای دارای آیتم (بدون NaN مالی) |
+| Avg Review Score | `mean(review_score)` | سفارشهای delivered دارای review |
+
+### EDA scope
+- توزیع `delivery_delay_days` (فقط ۹۶,۴۷۰ سفارش delivered با تاریخ) — هیستوگرام + percentiles (P10/P50/P90)
+- روند زمانی `is_delayed` و `delivery_delay_days` با Grain ماه
+- نرخ تأخیر و میانگین Delay به تفکیک `customer_state` (join با `customers` + `geolocation`)
+- توزیع `order_status` روی ۹۹,۴۴۱ سفارش و بررسی ۷۷۵ سفارش `order_item_count==0` (مالی NaN) و تأثیرشان بر KPI
+- توزیع `review_score` و همبستگی با `delivery_delay_days` (ورودی برای Task 4.3)
+
+### Constraints
+- استفاده از `delivery_delay_days`/`is_delayed` فقط طبق `docs/feature_registry.md` (Available At: `post_delivery`).
+- تمام `_clean`ها با `load_data()` خوانده میشوند؛ هیچ دوتاییسازی منطق ingest/clean.
+- `src/analysis/` پوشهی جدید است — باید در بخش ۷ (ساختار Repo) و بخش «ردشدهها/تصمیمها» بهعنوان تصمیم مستند شود.
+
+### Test
+- `tests/test_kpi_dashboard.py` — روی Fixture مصنوعی، چک میکند Denominatorها درستاند (مثلاً `delay_rate` روی ۹۶,۴۷۰ حساب میشود نه ۹۹,۴۴۱) و هیچ KPI روی مخرج نادرست ساخته نمیشود.
+
 
 ### Phase 3 — Customer Feature Layer
 **Task 3.1 – Customer Feature Table**
