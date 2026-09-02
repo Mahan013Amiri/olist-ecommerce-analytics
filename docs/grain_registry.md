@@ -14,5 +14,6 @@
 | `sellers` | `seller_id` | `seller_id` | 3,095 rows; >60% sellers in SP state |
 | `geolocation` | `zip_code_prefix` (after aggregation) | `geolocation_zip_code_prefix` | Raw had 26% exact duplicates; aggregated to 19,015 rows (mean lat/lng, mode city/state) |
 | `common_features` | `order_id` | `order_id` | 99,441 rows; order-level features built from `order_items` + `orders` (Task 1.4). `order_item_count=0` and monetary values are `NaN` for the 775 orders with no item rows; `delivery_delay_days`/`is_delayed` are `NaN` unless `order_status == "delivered"` |
+| `customer_features` | `customer_unique_id` | `customer_unique_id` | 96,096 rows; built from `orders` + `customers` + `common_features` (Task 3.1). Rolls up FULL order history per customer (no time cutoff) — for RFM/Segmentation/Analytics only, NOT predictive modeling. `total_spend`/`total_freight` are `NaN` (not 0) for the 2,738 customers with zero delivered orders; `is_repeat_customer` is based on `total_orders_delivered > 1` |
 
 <!-- New datasets will be added below as they are created in later tasks -->
