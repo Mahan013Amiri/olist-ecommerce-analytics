@@ -99,6 +99,7 @@ See [`reports/data_profile.md`](reports/data_profile.md) for the latest profilin
 | 2 | 2.1 Business EDA & KPI Dashboard | Done |
 | 3 | 3.1 Customer Feature Table | Done |
 | 3 | 3.2 RFM Analysis & Scoring | Done |
+| 3 | 3.3 Customer Segmentation | Done |
 
 For a detailed breakdown of what was done and found in each task, see [`docs/progress_log.md`](docs/progress_log.md).
 See [`docs/architecture.md`](docs/architecture.md) for the full roadmap.

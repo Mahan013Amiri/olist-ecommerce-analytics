@@ -277,3 +277,70 @@ Aggregate بسازه. `total_spend` همین الان طبق تعریف Monetary
 Input Feature‌های KMeans مفیده؛ ولی چون `F_score` توزیع بسیار Skewed داره (اکثریت مطلق روی سطح ۱)، باید
 حین Scaling (Task 3.3) به این نکته توجه بشه که این بُعد عملاً واریانس کمی داره و ممکنه در Clustering
 اثر کمی داشته باشه — این خودش یه یافته‌ی کسب‌وکاری واقعیه (اکثر مشتری‌های Olist یک‌بارخریدارن).
+
+
+## Task 3.3 — Customer Segmentation
+
+**چیکار شد:**
+- `src/models/segmentation.py` نوشته شد: پایپ‌لاین کامل Segmentation طبق الگوی
+  Scaling → Candidate K → Silhouette → Profiling.
+- **Feature Engineering:** `recency_days` فقط Scale شد (کم‌Skew‌تره)؛ `frequency`
+  و `monetary` هر دو `log1p` شدن قبل از `StandardScaler`. `frequency` علاوه‌براین
+  در صدک ۹۹ام Cap شد (جزئیات کامل در یافته‌ی زیر).
+- **K Selection:** بازه‌ی `k=2` تا `k=8` با Elbow (Inertia) + Silhouette Score
+  روی **کل داده** (بدون Sampling، طبق تصمیم صریح) ارزیابی شد.
+- `tests/test_segmentation.py` نوشته شد: ۱۱ تست، شامل یک تست Regression مستقیم
+  برای باگ Median-tie کشف‌شده (جزئیات زیر).
+
+**یافته‌ی مهم ۱ — تشخیص و رد یک Artifact مشکوک در K=2 (نه فقط پذیرش کورکورانه‌ی بالاترین Silhouette):**
+K=2 یک Silhouette غیرمنتظره بالا داشت (۰.۷۱۸) در مقابل k=3..8 (۰.۳۴–۰.۳۷). به‌جای
+پذیرش این عدد به‌عنوان «بهترین K»، بررسی شد که این جهش از کجا میاد:
+- بررسی اندازه‌ی Cluster‌ها نشون داد یک Cluster با دقیقاً ۲,۸۰۱ عضو (۳٪ جمعیت)
+  در **هر مقدار K** (از ۲ تا ۵) بدون تغییر تکرار می‌شه.
+- یک Cross-tab مستقیم بین این Cluster و شرط `frequency >= 2` نشون داد **۱۰۰٪
+  تطابق دقیق** (بدون حتی یک استثنا در ۹۳,۳۵۸ ردیف) — یعنی این یک ساختار واقعی
+  و پایدار در داده‌ست (تفکیک مشتری تکرارخریدار)، نه یک Artifact محاسباتی.
+- برای رد قطعی فرضیه‌ی «Artifact ناشی از Outlier افراطی»، `frequency` در صدک ۹۹ام
+  Cap شد (مقدار Cap = ۲.۰؛ فقط ۲۲۸ مشتری با frequency>2 تحت تأثیر قرار گرفتن) و کل
+  فرآیند K-Selection تکرار شد. الگوی مشابه (همون Cluster ۲,۸۰۱‌تایی، همون تطابق
+  ۱۰۰٪) دقیقاً تکرار شد — تأیید نهایی که این یک ساختار واقعی‌ست، نه Scale Artifact.
+- **تصمیم نهایی: K=4** (نه K=2)، چون K=2 کل ۹۷٪ جمعیت یک‌بارخریدار رو در یک
+  Cluster تفکیک‌نشده رها می‌کنه (اطلاعاتی که از قبل با `is_repeat_customer` در
+  Task 3.1 داشتیم رو تکرار می‌کنه)، در حالی که K=4 همون تفکیک تکرارخریدار/یک‌بارخریدار
+  رو حفظ می‌کنه و علاوه‌براین ۹۷٪ یک‌بارخریدارها رو بر اساس Recency/Monetary به
+  ۳ زیرگروه معنادار تقسیم می‌کنه — با هزینه‌ی معقول در Silhouette (۰.۳۷۲ در برابر ۰.۷۱۸).
+
+**یافته‌ی مهم ۲ — باگ Median-tie در نام‌گذاری Cluster‌ها:**
+منطق اولیه‌ی `_assign_cluster_names` از یک آستانه‌ی Median (`>= median`) برای
+تفکیک High/Low-Value بین ۳ Cluster یک‌بارخریدار استفاده می‌کرد. چون همیشه دقیقاً
+۳ Cluster باقی می‌مونه (فرد)، Median همیشه برابر مقدار Cluster میانی بود — و شرط
+`>=` باعث می‌شد این Cluster میانی به‌اشتباه «High-Value» طبقه‌بندی بشه (روی داده‌ی
+واقعی: Cluster با `monetary=119.5`، که واقعاً بین ۳۱۸.۱ و ۶۹.۰ میانی بود، به اشتباه
+«Dormant High-Value» نام گرفت). اصلاح شد به رتبه‌بندی مستقیم (`rank(ascending=False)`)
+به‌جای مقایسه با Median: بالاترین Monetary → High-Value، میانی → Mid-Value، پایین‌ترین
+→ Low-Value. یک `ValueError` صریح هم اضافه شد که اگه تعداد Cluster‌های غیرتکراری
+دقیقاً ۳ نباشه (مثلاً اگه K در آینده تغییر کنه)، به‌جای تولید نام اشتباه، خطای
+واضح بده. تست Regression این باگ (`test_cluster_exactly_at_median_not_misclassified`)
+در `tests/test_segmentation.py` ثبت شد تا برگشت این باگ در آینده فوراً شناسایی بشه.
+
+**نتایج نهایی (روی داده‌ی کامل، ۹۳,۳۵۸ مشتری از `rfm_summary`):**
+
+| Cluster | اندازه | % جمعیت | mean_recency_days | mean_frequency | mean_monetary | نام نهایی |
+|---|---|---|---|---|---|---|
+| 3 | 2,801 | 3.00% | 268.3 | 2.11 | 308.5 | Loyal / Repeat Buyers |
+| 0 | 27,872 | 29.86% | 221.6 | 1.00 | 318.1 | High-Value Active |
+| 1 | 27,001 | 28.92% | 473.5 | 1.00 | 119.5 | Mid-Value Dormant |
+| 2 | 35,684 | 38.22% | 195.9 | 1.00 | 69.0 | Low-Value Active |
+
+**نتیجه‌ی تست‌ها:** هر ۱۱ تست `test_segmentation.py` Pass شدن.
+
+**فایل‌های تولیدشده/تغییرکرده:** `src/models/segmentation.py`, `tests/test_segmentation.py`,
+`reports/customer_segments.csv` (لوکال، commit نمی‌شه)، `reports/task_3_3_segmentation_summary.md`,
+`reports/figures/task_3_3_k_selection_capped.png`, `docs/grain_registry.md` (ردیف جدید
+برای `customer_segments`).
+
+**نکته برای Task 4.x و 7.x:** `cluster` (عدد خام KMeans) بین اجراهای مختلف پایدار
+نیست — فقط `cluster_label` باید در تحلیل‌های بعدی یا Power BI استفاده بشه. همچنین
+این Segmentation صرفاً برای Analytics/Business Reporting (Task 3.3, 7.x) طراحی شده،
+نه Predictive Modeling — طبق همون قاعده‌ی Leakage Policy که برای `customer_features`
+(Task 3.1) هم صدق می‌کرد (کل تاریخچه‌ی مشتری بدون Cutoff زمانی استفاده شده).
