@@ -233,3 +233,47 @@ Predictive، حتماً `docs/feature_registry.md` چک بشه (ممنوع بر�
 Aggregate بسازه. `total_spend` همین الان طبق تعریف Monetary مرسوم (`price + freight` روی
 سفارش‌های delivered) حساب شده — فقط Reference Date برای Recency باید در Task 3.2 صریحاً
 مستند بشه.
+
+
+## Task 3.2 — RFM Analysis & Scoring
+
+**چیکار شد:**
+- `src/features/rfm.py` نوشته شد: تابع `calculate_rfm(customer_features, reference_date=None, monetary_definition="price+freight")`
+  که یک جدول RFM در سطح `customer_unique_id` می‌سازه، مستقیماً از روی خروجی Task 3.1 (`customer_features`).
+- سه تصمیم صریح RFM طبق خواسته‌ی architecture.md مستند شدن:
+  - **Reference Date**: پیش‌فرض `max(last_purchase_date)` روی کل مشتری‌ها (یعنی آخرین تاریخ سفارش در کل دیتاست)؛ قابل override با پارامتر.
+  - **Monetary Definition**: پیش‌فرض `"price+freight"` (یعنی `total_spend + total_freight`)؛ گزینه‌ی جایگزین `"price"`.
+  - **Eligible Orders**: `order_status == "delivered"` — این تصمیم در Task 3.1 قفل شده (چون `total_spend`/`total_freight`/`total_orders_delivered` از قبل فقط روی delivered حساب شدن)؛ به همین دلیل پارامتر `eligible_statuses` در امضای `calculate_rfm` وجود نداره (چون اثری نمی‌کرد و API گمراه‌کننده می‌شد).
+- مشتری‌های بدون هیچ سفارش delivered (`total_orders_delivered == 0`) از جدول RFM **کاملاً حذف** شدن، نه اینکه `monetary=0` بگیرن — چون NaN به معنای «بدون داده» است، نه «صفر تومان» (همون کانوانسیون Task 1.4/3.1).
+
+**یافته‌ی روش‌شناسی مهم (کشف‌شده حین توسعه، نه از قبل پیش‌بینی‌شده):**
+یک روش Scoring واحد برای هر سه بُعد RFM کافی نبود. دو تلاش اول Fail شدن:
+1. `rank(method="first") + qcut` روی ردیف‌های خام: چون ~۹۷٪ مشتری‌ها دقیقاً `frequency=1` دارن، این روش بین این مشتری‌های کاملاً یکسان امتیاز متفاوت و دلبخواهی (بر مبنای ترتیب الفبایی `customer_unique_id`) پخش می‌کرد — یه باگ واقعی، نه یه انتخاب طراحی.
+2. `qcut` روی مقادیر خام با `duplicates="drop"`: باگ اول رو حل کرد ولی باعث شد `F_score` کاملاً به یک سطح سقوط کنه (چون صدک‌های ۲۰-۸۰ام همه روی مقدار غالب `1` می‌افتادن و مرزها Merge می‌شدن) — یعنی مشتری با ۱۵ سفارش هم امتیاز یکسان با مشتری یک‌بارخریدار می‌گرفت.
+
+**راه‌حل نهایی:** یک استراتژی دو‌رژیمی خودکار در `_quantile_score`:
+- اگه یک مقدار به‌تنهایی بیش از ۳۰٪ جمعیت رو پوشش بده (مثل Frequency، Heavy-tie regime)، مرزهای Quantile روی **فضای مقادیر یکتا** (نه ردیف‌ها) حساب می‌شن — این تعادل جمعیتی ۲۰-۲۰-۲۰-۲۰-۲۰ رو فدا می‌کنه ولی دم توزیع (مشتری‌های پرتکرار) رو قابل‌تفکیک نگه می‌داره.
+- در غیر این صورت (مثل Recency و Monetary، Standard regime)، از `rank(method="average") + qcut` استفاده می‌شه که هم Tie-safe هست هم واقعاً جمعیت رو ۲۰-۲۰-۲۰-۲۰-۲۰ تقسیم می‌کنه.
+
+**نتایج واقعی (روی داده‌ی کامل):**
+
+| بررسی | عدد | یادداشت |
+|---|---|---|
+| `shape` (بعد از Exclusion) | (93358, 9) | 96,096 − 2,738 مشتری بدون سفارش delivered |
+| Reference Date | 2018-10-17 17:30:18 | آخرین `last_purchase_date` در کل دیتاست |
+| `R_score` توزیع | ~18,5xx–18,8xx در هر سطح (۵ سطح) | Population-balanced، طبق انتظار |
+| `M_score` توزیع | ~18,66x–18,67x در هر سطح (۵ سطح) | Population-balanced، طبق انتظار |
+| `F_score` توزیع | 1: 93,130 \| 2: 209 \| 3: 9 \| 4: 8 \| 5: 2 | Heavy-tie regime؛ دم توزیع حفظ شده |
+| `customer_unique_id` تکراری | 0 | Sanity Check پاس شد |
+
+**نتیجه‌ی تست‌ها:** `tests/test_rfm.py` نوشته شد — ۱۲ تست، شامل دو تست مستقیم برای همون دو باگ کشف‌شده (Tie-safety و Tail-preservation)، به‌علاوه‌ی تست‌های Exclusion، جهت Recency/Monetary، تعریف‌های مختلف Monetary، `reference_date` override، و صحت `rfm_segment`/`rfm_score_sum`. هر ۱۲ تست Pass شدن.
+
+**فایل‌های تولیدشده/تغییرکرده:** `src/features/rfm.py`, `tests/test_rfm.py`,
+`reports/rfm_summary.csv` (لوکال، commit نمی‌شه)، `reports/rfm_metadata.md`,
+`docs/grain_registry.md` (ردیف جدید برای `rfm_summary`).
+
+**نکته برای Task 3.3:** Segmentation باید مستقیماً از `rfm_summary.csv` (یا `calculate_rfm(...)` مستقیم)
+بخونه، نه دوباره از صفر RFM بسازه. ستون `rfm_score_sum` (عددی، ۳ تا ۱۵) به‌احتمال زیاد به‌عنوان یکی از
+Input Feature‌های KMeans مفیده؛ ولی چون `F_score` توزیع بسیار Skewed داره (اکثریت مطلق روی سطح ۱)، باید
+حین Scaling (Task 3.3) به این نکته توجه بشه که این بُعد عملاً واریانس کمی داره و ممکنه در Clustering
+اثر کمی داشته باشه — این خودش یه یافته‌ی کسب‌وکاری واقعیه (اکثر مشتری‌های Olist یک‌بارخریدارن).
